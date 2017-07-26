@@ -1,17 +1,71 @@
 #!/bin/bash
 
-#Section 1.1.1.*
+#Section 1: Initial Setup
+#Section 1.1: Disable unused filesystems
 echo "Disabling unused filesystems"
-echo "install cramfs /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install freevxfs /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install jffs2 /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install hfs /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install hfsplus /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install squashfs /bin/true" >> /etc/modprobe.d/CIS.conf
-echo "install udf /bin/ture" >> /etc/modprobe.d/CIS.conf
-#echo "install vfat /bin/true: >> /etc/modprobe.d/CIS.conf
+
+CORRECT="install /bin/true "
+
+#Checks to see if CRAMFS filesystem to disabled and if not, disables it
+AUDIT=$(modprobe -n -v cramfs | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+        echo "install cramfs /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if FREEVXFS filesystem to disabled and if not, disables it
+AUDIT=$(modprobe -n -v freevxfs | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+	echo "install freevxfs /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if JFFS2 filesystem to disabled and if not, disables it
+AUDIT=$(modtprobe -n -v jffs\2 | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+	echo "install jffs2 /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+##Checks to see if HFS filesystem to disabled and if not, disables it
+AUDIT=$(modtprobe -n -v hfs | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+        echo "install hfs /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if HFSPLUS filesystem to disabled and if not, disables it
+AUDIT=$(modtprobe -n -v hfsplus | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+        echo "install hfsplus /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if SQUASHFS filesystem to disabled and if not, disables it
+AUDIT=$(modtprobe -n -v squashfs | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+        echo "install squashfs /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if UDF filesystem to disabled and if not, disables it
+AUDIT=$(modtprobe -n -v udf | grep "install /bin/true"))
+if [ "$AUDIT" != "$CORRECT" ];
+then
+        echo "install udf /bin/true" >> /etc/modprobe.d/CIS.conf
+fi
+
+#Checks to see if VFAT filesystem to disabled and if not, disables it
+#AUDIT=$(modtprobe -n -v vfat | grep "install /bin/true"))
+#if [ "$AUDIT" != "$CORRECT" ];
+#then
+#        echo "install vfat /bin/true" >> /etc/modprobe.d/CIS.conf
+#fi
+
+
 
 #section 1.3.1
+
 echo "Installing and initiating Aide"
 apt install aide -y
 aideinit
