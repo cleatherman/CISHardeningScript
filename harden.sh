@@ -1,69 +1,41 @@
 #!/bin/bash
 
+
+
+
+#############################################################################
+#############################################################################
 #Section 1: Initial Setup
 #Section 1.1: Disable unused filesystems
 echo "Disabling unused filesystems"
 
-CORRECT="install /bin/true "
+#Function that checks to see if a filesystem is disabled and if not, disables it. Receives the name of the filesystem as an argument.
+disable() {
+        CORRECT="install /bin/true "
+        AUDIT=$(modprobe -n -v $1 | grep "install /bin/true")
+        CHECK=$(cat /etc/modprobe.d/CIS.conf | grep -ow "$1")
+        if [[ "$AUDIT" != "$CORRECT" && "$1" != "$CHECK" ]];
+        then
+                echo "Writing $1 to CIS.conf"
+                echo "install $1 /bin/true" >> /etc/modprobe.d/CIS.conf
+        fi
+} #End of function "disable"
 
-#Checks to see if CRAMFS filesystem to disabled and if not, disables it
-AUDIT=$(modprobe -n -v cramfs | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-        echo "install cramfs /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
+touch /etc/modprobe.d/CIS.conf
 
-#Checks to see if FREEVXFS filesystem to disabled and if not, disables it
-AUDIT=$(modprobe -n -v freevxfs | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-	echo "install freevxfs /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-#Checks to see if JFFS2 filesystem to disabled and if not, disables it
-AUDIT=$(modtprobe -n -v jffs\2 | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-	echo "install jffs2 /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-##Checks to see if HFS filesystem to disabled and if not, disables it
-AUDIT=$(modtprobe -n -v hfs | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-        echo "install hfs /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-#Checks to see if HFSPLUS filesystem to disabled and if not, disables it
-AUDIT=$(modtprobe -n -v hfsplus | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-        echo "install hfsplus /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-#Checks to see if SQUASHFS filesystem to disabled and if not, disables it
-AUDIT=$(modtprobe -n -v squashfs | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-        echo "install squashfs /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-#Checks to see if UDF filesystem to disabled and if not, disables it
-AUDIT=$(modtprobe -n -v udf | grep "install /bin/true"))
-if [ "$AUDIT" != "$CORRECT" ];
-then
-        echo "install udf /bin/true" >> /etc/modprobe.d/CIS.conf
-fi
-
-#Checks to see if VFAT filesystem to disabled and if not, disables it
-#AUDIT=$(modtprobe -n -v vfat | grep "install /bin/true"))
-#if [ "$AUDIT" != "$CORRECT" ];
-#then
-#        echo "install vfat /bin/true" >> /etc/modprobe.d/CIS.conf
-#fi
+disable cramfs
+disable freevxfs
+disable jffs2
+disable hfs
+disable hfsplus
+disable squashfs
+disable udf
+#disable vfat
 
 
 
+#############################################################################
+#############################################################################
 #section 1.3.1
 
 echo "Installing and initiating Aide"
@@ -73,35 +45,49 @@ aideinit
 echo "Adding crontab for Aide"
 echo -e "$(crontab -u root -l)\n0 5 * * * /usr/bin/aide --check" | crontab -u root -
 
+#############################################################################
+#############################################################################
 #section 1.4.1
 echo "Securing bootloader permissions"
 chown root:root /boot/grub/grub.cfg
 chmod 600 /boot/grub/grub.cfg
 
+#############################################################################
+#############################################################################
 #section 1.5.1
 echo "Restricting core dumps"
 echo "* hard core 0" >> /etc/security/limits.conf
 echo "fs.suid_dumpable = 0" >> /etc/sysctl.conf
 sysctl -w fs.suid_dumpable=0
 
+#############################################################################
+#############################################################################
 #section 1.7
 echo "Configuring banners"
 echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
 echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
 
+#############################################################################
+#############################################################################
 #section 2.2.3
 echo "Disabling Avahi Server"
 systemctl disable avahi-daemon
 
+#############################################################################
+#############################################################################
 #section 2.2.15
 echo "Configuring mail transfer agent for local-only mode"
 sed -i '/^inet_interfaces =/s/=.*/= localhost/' /etc/postfix/main.cf
 services postfix restart
 
+#############################################################################
+#############################################################################
 #section 2.3
 echo "Removing service clients"
 apt remove telnet -y
 
+#############################################################################
+#############################################################################
 #section 3.1
 echo "Securing network parameters"
 
@@ -137,6 +123,8 @@ sysctl -w net.ipv6.route.flush=1
 sed -i '/^GRUB_CMDLINE_LINUX=/s/=.*/="ipv6.disable=1"/' /etc/default/grub
 update-grub
 
+#############################################################################
+#############################################################################
 #section 3.4
 echo "Hardening TCP Wrappers"
 #Add Hosts allowed to access this machine
@@ -145,6 +133,8 @@ echo "Hardening TCP Wrappers"
 #Deny all hosts except for previously specified
 #echo "ALL: ALL" >> /etc/hosts.deny
 
+#############################################################################
+#############################################################################
 #section 3.5
 echo "Hardening uncommon network protocols"
 
@@ -153,10 +143,14 @@ echo "install sctp /bin/true" >> /etc/modprobe.d/CIS.conf
 echo "install rds /bin/true" >> /etc/modprobe.d/CIS.conf 
 echo "install tipc /bin/true" >> /etc/modprobe.d/CIS.conf
 
+#############################################################################
+#############################################################################
 #section 3.6
 apt install ufw -y
 ufw enable
 
+#############################################################################
+#############################################################################
 #section 4.2.1
 echo "Configuring logging"
 
@@ -165,6 +159,8 @@ systemctl enable rsyslog
 
 chmod -R g-wx,o-rwx /var/log/*
 
+#############################################################################
+#############################################################################
 #section 5.1
 echo "Configuring cron daemon"
 
@@ -190,6 +186,8 @@ chmod 600 /etc/at.allow
 chown root:root /etc/cron.allow
 chown root:root /etc/at.allow
 
+#############################################################################
+#############################################################################
 #section 5.2
 echo "Configuring SSH"
 chown root:root /etc/ssh/ssh_config
@@ -221,16 +219,22 @@ echo "ClientAliveCountMax 0" >> /etc/ssh/ssh_config
 echo "LoginGraceTime 60" >> /etc/ssh/ssh_config
 echo "Banner /etc/issue.net" >> /etc/ssh/ssh_config
 
+#############################################################################
+#############################################################################
 #section 5.3
 echo "Configuring PAM"
 
 apt install libpam-pwquality -y
 
+#############################################################################
+#############################################################################
 #section 5.4
 echo "Configuring user accounts and environment"
 echo "umask 027" >> /etc/bash.bashrc
 echo "umask 027" >> /etc/profile 
 
+#############################################################################
+#############################################################################
 #section 5.6
 echo "Restricting access to su"
 echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su
