@@ -128,12 +128,96 @@ echo "* hard core 0" >> /etc/security/limits.conf
 echo "fs.suid_dumpable = 0" >> /etc/sysctl.conf
 sysctl -w fs.suid_dumpable=0
 
+
+#section 1.5.3
+RESULT=$(sysctl kernel.randomize_va_space | awk '{ print $2 }')
+if [ $RESULT != 2 ]
+then
+        echo "kernel.randomize_va_space = 2" >> /etc/sysctl.conf
+        sysctl -w kernel.randomize_va_space=2
+fi
+
+#section 1.5.4
+prelink -ua			#restores binaries
+apt purge prelink		#removes prelink
+
 #############################################################################
 #############################################################################
 #section 1.7
 echo "Configuring banners"
+echo "Authorized uses only. All activity may be monitored and reported." > /etc/motd
 echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
 echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net
+
+#Configure permissions
+chown root:root /etc/motd
+chmod 644 /etc/motd
+
+chown root:root /etc/issue
+chmod 644 /etc/issue
+
+chown root:root /etc/issue.net
+chmod 644 /etc/issue.net
+
+#1.7.2: Ensure GDM Banner is configured
+#Ensure file exists
+touch /etc/dconf/profile/gdm
+mkdir /etc/dconf/db/gdm.d
+touch /etc/dconf/db/gdm.d/01-banner-message
+
+#Ensures proper contents are in the file
+if [ ! $(grep "user-db:user" /etc/dconf/profile/gdm) ]
+then
+        echo "user-db:user" >> /etc/dconf/profile/gdm
+fi
+if [ ! $(grep "system-db:gdm" /etc/dconf/profile/gdm) ]
+then
+        echo "system-db:gdm" >> /etc/dconf/profile/gdm
+fi
+if [ ! $(grep "file-db:/usr/share/gdm/greeter-dconf-defaults" /etc/dconf/profile/gdm) ]
+then
+        echo "file-db:/usr/share/gdm/greeter-dconf-defaults" >> /etc/dconf/profile/gdm
+fi
+if [ ! $(grep -ow "\[org/gnome/login-screen\]" /etc/dconf/db/gdm.d/01-banner-message) ]
+then
+        echo "[org/gnome/login-screen]" >> /etc/dconf/db/gdm.d/01-banner-message
+fi
+if [ ! $(grep -ow "banner-message-enable=true" /etc/dconf/db/gdm.d/01-banner-message) ]
+then
+        echo "banner-message-enable=true" >> /etc/dconf/db/gdm.d/01-banner-message
+fi
+if [ ! $(grep -ow "banner-message-text=" /etc/dconf/db/gdm.d/01-banner-message) ]
+then
+        echo "banner-message-text='Authorized uses only. All activity may be monitored and reported.'" >> /etc/dconf/db/gdm.d/01-banner-message
+fi
+
+dconf update
+
+#section 1.8: Apply automatic security updates
+PATH="/etc/cron.weekly/apt-security-updates"
+PATH2="/etc/logrotate.d/apt-security-updates"
+if [ -e $PATH ]
+then
+        #Configure automatic security updates
+        touch $PATH
+        echo "echo \"**************\" >> /var/log/apt-security-updates" >> $PATH
+        echo "date >> /var/log/apt-security-updates" >> $PATH
+        echo "aptitude update >> /var/log/apt-security-updates" >> $PATH
+        echo "aptitude safe-upgrade -o Aptitude::Delete-Unused=false --assume-yes --target-release \`lsb_release -cs\` -security >> /var/log/apt-security-updates" >> $PATH
+        echo "echo \"security updates (if any) installed\"" >> $PATH
+        chmod +x $PATH
+
+        #Enable rotating of the logs
+        echo "/var/log/apt-security-updates {" >> $PATH2
+        echo "  rotate 2" >> $PATH2
+        echo "  weekly" >> $PATH2
+        echo "  size 250k" >> $PATH2
+        echo "  compress" >> $PATH2
+        echo "  notifempty" >> $PATH2
+        echo "}" >> $PATH2
+
+fi
+
 
 #############################################################################
 #############################################################################
@@ -164,8 +248,8 @@ echo "net.ipv4.conf.all.send_redirects = 0" >> /etc/sysctl.conf
 echo "net.ipv4.conf.default.send_redirects = 0" >> /etc/sysctl.conf
 echo "net.ipv4.conf.all.secure_redirects = 0" >> /etc/sysctl.conf
 echo "net.ipv4.conf.default.secure_redirects = 0" >> /etc/sysctl.conf
-echo "net.ipv4.conf.all.log_martians = 1" >> /etc/sysct.conf
-echo "net.ipv4.conf.default.log_martians = 1" >> /etc/sysct.conf
+echo "net.ipv4.conf.all.log_martians = 1" >> /etc/sysctl.conf
+echo "net.ipv4.conf.default.log_martians = 1" >> /etc/sysctl.conf
 echo "net.ipv4.tcp_syncookies = 1" >> /etc/sysctl.conf
 
 sysctl -w net.ipv4.conf.all.send_redirects=0
