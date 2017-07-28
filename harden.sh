@@ -33,6 +33,74 @@ disable udf
 #disable vfat
 
 
+#Section 1.1.2 - 1.1.16
+#This function checks to see if file system is on a separate partition.
+#If it is, it will ensure each one is met with the proper mounting
+#options according to CIS standards.
+#The function receives 2 inputs "ensureOptions <1> <2>
+#<1> = Desired file system to check 		i.e. "/tmp"
+#<2> = Desired mounting option to check 	i.i. "nosud"
+ 
+ensureOptions() {
+FS=$1           #Receives the filesystem we wish to check
+OPT=$2          #Receives the option we wish to check
+LINE=$(awk -v pat="$FS" '(/UUID/ && $0~pat){print NR}' /etc/fstab)
+CHECK=$(mount | grep $FS | grep -ow $OPT)
+
+if [ "$CHECK" == "" ]
+then
+        if [ "$(awk -v pat="$LINE" 'NR==pat {print $4}' /etc/fstab)" == "defaults" ]
+        then
+                sed -i "$LINE s/defaults/$OPT/" /etc/fstab
+                mount -o remount,$OPT $FS
+        elif [ "$(mount | grep $FS | grep -ow noexec)" == "noexec" ]
+        then
+                sed -i "$LINE s/noexec/&,$OPT/" /etc/fstab
+                mount -o remount,$OPT $FS
+        elif [ "$(mount | grep $FS | grep -ow nodev)" == "nodev" ]
+        then
+                sed -i "$LINE s/nodev/&,$OPT/" /etc/fstab
+                mount -o remount,$OPT $FS       
+        elif [ "$(mount | grep $FS | grep -ow nosuid)" == "nosuid" ]
+        then
+                sed -i "$LINE s/nosuid/&,$OPT/" /etc/fstab
+                mount -o remount,$OPT $FS
+        else
+                echo "The $FS filesystem does not have a seperate partition"
+        fi
+fi
+}
+
+
+ ensureOptions /tmp nosuid
+ ensureOptions /tmp nodev
+# ensureOptions /tmp noexec
+
+# ensureOptions /var nosuid
+# ensureOptions /var nodev
+# ensureOptions /var noexec
+
+ ensureOptions /var/tmp nosuid
+ ensureOptions /var/tmp nodev
+ ensureOptions /var/tmp noexec
+
+# ensureOptions /var/log nosuid
+# ensureOptions /var/log nodev
+# ensureOptions /var/log noexec
+
+# ensureOptions /var/log/audit nosuid
+# ensureOptions /var/log/audit nodev
+# ensureOptions /var/log/audit noexec
+
+# ensureOptions /home nosuid
+ ensureOptions /home nodev
+# ensureOptions /home noexec
+
+# ensureOptions /dev/shm nosuid
+# ensureOptions /dev/shm nodev
+# ensureOptions /dev/shm noexec
+
+
 
 #############################################################################
 #############################################################################
