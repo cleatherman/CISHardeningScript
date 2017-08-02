@@ -1,8 +1,5 @@
 #!/bin/bash
 
-
-
-
 #############################################################################
 #############################################################################
 #Section 1: Initial Setup
@@ -10,7 +7,7 @@
 echo "Disabling unused filesystems"
 
 #Function that checks to see if a filesystem is disabled and if not, disables it. Receives the name of the filesystem as an argument.
-disable() {
+disableFS() {
         CORRECT="install /bin/true "
         AUDIT=$(modprobe -n -v $1 | grep "install /bin/true")
         CHECK=$(cat /etc/modprobe.d/CIS.conf | grep -ow "$1")
@@ -23,14 +20,14 @@ disable() {
 
 touch /etc/modprobe.d/CIS.conf
 
-disable cramfs
-disable freevxfs
-disable jffs2
-disable hfs
-disable hfsplus
-disable squashfs
-disable udf
-#disable vfat
+disableFS cramfs
+disableFS freevxfs
+disableFS jffs2
+disableFS hfs
+disableFS hfsplus
+disableFS squashfs
+disableFS udf
+#disableFS vfat
 
 
 #Section 1.1.2 - 1.1.16
@@ -194,18 +191,18 @@ fi
 dconf update
 
 #section 1.8: Apply automatic security updates
-PATH="/etc/cron.weekly/apt-security-updates"
+PATH1="/etc/cron.weekly/apt-security-updates"
 PATH2="/etc/logrotate.d/apt-security-updates"
-if [ -e $PATH ]
+if [ -e $PATH1 ]
 then
         #Configure automatic security updates
-        touch $PATH
-        echo "echo \"**************\" >> /var/log/apt-security-updates" >> $PATH
-        echo "date >> /var/log/apt-security-updates" >> $PATH
-        echo "aptitude update >> /var/log/apt-security-updates" >> $PATH
-        echo "aptitude safe-upgrade -o Aptitude::Delete-Unused=false --assume-yes --target-release \`lsb_release -cs\` -security >> /var/log/apt-security-updates" >> $PATH
-        echo "echo \"security updates (if any) installed\"" >> $PATH
-        chmod +x $PATH
+        touch $PATH1
+        echo "echo \"**************\" >> /var/log/apt-security-updates" >> $PATH1
+        echo "date >> /var/log/apt-security-updates" >> $PATH1
+        echo "aptitude update >> /var/log/apt-security-updates" >> $PATH1
+        echo "aptitude safe-upgrade -o Aptitude::Delete-Unused=false --assume-yes --target-release \`lsb_release -cs\` -security >> /var/log/apt-security-updates" >> $PATH1
+        echo "echo \"security updates (if any) installed\"" >> $PATH1
+        chmod +x $PATH1
 
         #Enable rotating of the logs
         echo "/var/log/apt-security-updates {" >> $PATH2
@@ -221,9 +218,59 @@ fi
 
 #############################################################################
 #############################################################################
+#section 2.1
+
+#The disableService function disables a service (input as an argument) from inetd
+disableService() {
+SERVICE=$1
+
+if [ -e /etc/inetd.conf ]
+then	
+	if [ "$(grep -R "^$SERVICE" /etc/inetd.*)" != "" ]
+	then    
+        	sed -e "/$SERVICE/ s/^#*/#/" -i /etc/inetd.conf
+	fi
+fi      
+}
+
+disableService chargen
+disableService daytime
+disableService discard
+disableService echo
+disableService time
+disableService rsh
+disableService talk
+disableService ntalk
+disableService telnet
+disableService tftp
+disableService xinetd
+
 #section 2.2.3
-echo "Disabling Avahi Server"
-systemctl disable avahi-daemon
+disableCTL() {
+SERVICE=$1
+
+if [ "$(systemctl is-enabled $SERVICE)" == "enabled" ]
+then
+	systemctl disale $SERVICE
+fi
+}
+
+disableCTL avahi-daemon
+#disableCTL cups
+disableCTL isc-dhcp-server
+disableCTL isc-dhcp-server6
+disableCTL slapd
+disableCTL nfs-kernel-server
+disableCTL bind9
+disableCTL vsftpd
+disableCTL apache2
+disableCTL dovecot
+disableCTL smbd
+disableCTL squid
+disableCTL snmpd
+disableCTL rsync
+disableCTL nis
+
 
 #############################################################################
 #############################################################################
@@ -235,40 +282,53 @@ services postfix restart
 #############################################################################
 #############################################################################
 #section 2.3
-echo "Removing service clients"
-apt remove telnet -y
+uninstall() {
+PACKAGE=$1
+
+if [ "$(dpkg-query -W -f='${Status}\n' $PACKAGE | grep -ow not-installed)" ]
+then
+        apt-get remove $PACKAGE
+fi
+}
+
+uninstall nis
+uninstall rsh-client
+uninstall rsh-redone-client
+uninstall talk
+uninstall telnet
+uninstall ldap-utils
+
 
 #############################################################################
 #############################################################################
 #section 3.1
 echo "Securing network parameters"
 
-#ipv4
-echo "net.ipv4.conf.all.send_redirects = 0" >> /etc/sysctl.conf
-echo "net.ipv4.conf.default.send_redirects = 0" >> /etc/sysctl.conf
-echo "net.ipv4.conf.all.secure_redirects = 0" >> /etc/sysctl.conf
-echo "net.ipv4.conf.default.secure_redirects = 0" >> /etc/sysctl.conf
-echo "net.ipv4.conf.all.log_martians = 1" >> /etc/sysctl.conf
-echo "net.ipv4.conf.default.log_martians = 1" >> /etc/sysctl.conf
-echo "net.ipv4.tcp_syncookies = 1" >> /etc/sysctl.conf
+setflag() {
+	INTERFACE=$1
+	FLAG=$2
+        if [ "$(grep -ow $INTERFACE /etc/sysctl.conf.bak)" == "$INTERFACE" ]
+        then
+                sed -i "/$INTERFACE/s/.*/$INTERFACE=$FLAG/" /etc/sysctl.conf.bak
+                sysctl -w $INTERFACE=$FLAG
+        else
+                echo "$INTERFACE = $FLAG" >> /etc/sysctl.conf.bak
+                sysctl -w $INTERFACE=$FLAG
+        fi
+ 
+}
 
-sysctl -w net.ipv4.conf.all.send_redirects=0
-sysctl -w net.ipv4.conf.default.send_redirects=0
-sysctl -w net.ipv4.conf.all.secure_redirects=0
-sysctl -w net.ipv4.conf.default.secure_redirects=0
-sysctl -w net.ipv4.conf.all.log_martians=1
-sysctl -w net.ipv4.conf.default.log_martians=1
-sysctl -w net.ipv4.tcp_syncookies=1
+setflag net.ipv4.conf.all.send_redirects 0
+setflag net.ipv4.conf.default.send_redirects 0
+setflag net.ipv4.conf.all.secure_redirects 0
+setflag net.ipv4.conf.default.secure_redirects 0
+setflag net.ipv4.conf.all.log_martians 1
+setflag net.ipv4.conf.default.log_martians 1
+setflag ipv4.tcp_syncookies 1
+setflag net.ipv6.conf.all.accept_ra 0
+setflag net.ipv6.conf.default.accept_ra 0
 
 sysctl -w net.ipv4.route.flush=1
-
-#ipv6
-echo "net.ipv6.conf.all.accept_ra = 0" >> /etc/sysctl.conf
-echo "net.ipv6.conf.default.accept_ra = 0" >> /etc/sysctl.conf
-
-sysctl -w net.ipv6.conf.all.accept_ra=0
-sysctl -w net.ipv6.conf.default.accept_ra=0
-
 sysctl -w net.ipv6.route.flush=1
 
 #Disable IPv6
