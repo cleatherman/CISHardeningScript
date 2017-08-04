@@ -442,12 +442,39 @@ apt install libpam-pwquality -y
 #############################################################################
 #section 5.4
 echo "Configuring user accounts and environment"
-echo "umask 027" >> /etc/bash.bashrc
-echo "umask 027" >> /etc/profile 
+
+if [ "$(grep -ow "umask" /etc/bash.bashrc)" == "umask" ]
+then    
+        if [ "$(grep -ow "umask 027" /etc/bash.bashrc)" == "" ] 
+        then
+                sed -i '/umask/s/.*/umask 027/' /etc/bash.bashrc
+        fi
+else    
+        echo "umask 027" >> /etc/bash.bashrc
+fi
+
+if [ "$(grep -ow "umask" /etc/profile)" == "umask" ]
+then    
+        if [ "$(grep -ow "umask 027" /etc/profile)" == "" ] 
+        then
+                sed -i '/umask/s/.*/umask 027/' /etc/profile
+        fi
+else    
+        echo "umask 027" >> /etc/profile
+fi  
+ 
 
 #############################################################################
 #############################################################################
 #section 5.6
 echo "Restricting access to su"
-echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su
-echo "wheel:x:10:root,icisi-admin" >> /etc/group
+
+if [ "$(grep -ow "auth required pam_wheel.so useuid" /etc/pam.d/su)" == "" ]
+then
+	echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su
+fi
+
+if [ "$(grep -ow "wheel" /etc/group)" != "wheel" ]
+then
+	echo "wheel:x:10:root,icisi-admin" >> /etc/group
+fi
